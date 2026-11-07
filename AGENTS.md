@@ -1,19 +1,35 @@
-# Architecture
+# MY GARAGE v8 development rules
 
-MY GARAGE v7.0 evolves the uploaded standalone v6, rather than replacing its data model or features. Frontend is a static Ukrainian-language application in `public/index.html`, with the original v6 implementation followed by v7 extensions. Some original renderers are named `v6VehicleForm`, `v6RecordForm`, `v6FuelLogForm`, and `v6Detail`; v7 wrappers add fields while retaining their behavior. `public/v7.css` provides the desktop sidebar and iPhone bottom navigation. `public/sw.js` caches only the public shell, never API responses.
+## Source and compatibility
+- v8 is developed from the user-provided v7 source archive. Do not rebuild the application from scratch.
+- Preserve the existing vehicle model and all legacy fields: `vehicles`, `serviceRules`, `carRecords`, `fuelups`, documents, events, breakdowns, budgets, unknown JSON fields, and attachments.
+- Do not remove or silently rename existing features. Keep the old Netlify files only as migration/reference material; v8 deploys through Cloudflare Workers.
+- Never seed fictitious cars or personal records. Never migrate production data automatically.
 
-`netlify/functions/garage.mts` serves `/api/garage` and `/api/file`. Garages are isolated by an HttpOnly browser cookie. Database records are versioned JSONB aggregates to retain unknown legacy properties. Optimistic revision matching prevents multiple tabs from silently overwriting data. Previous aggregates are retained in `garage_revisions`. Attachments are content-addressed in Netlify Blobs and hydrated for portable JSON exports. No account login or cross-device synchronization is implemented.
+## Architecture
+- Frontend: static Ukrainian PWA in `public/`.
+- API: Cloudflare Worker in `worker/index.ts`.
+- Database: Cloudflare D1, schema migrations in `migrations/`.
+- Media: Cloudflare R2.
+- Authentication: Google OAuth and one-time email links; sessions are opaque, hashed server-side, HttpOnly, Secure cookies.
+- Derive user identity only from the validated server session. Never accept browser-provided user IDs as authorization.
+- Garage rows and R2 keys are user-scoped. Keep optimistic revision checks for garage writes.
+- Blog visibility is per post. Enforce visibility on the server for both post content and every media request; a private post and its media are author-only.
 
-`db/schema.ts` is the Drizzle source of truth. Migrations are in `netlify/database/migrations` and are applied by Netlify, never manually. Drizzle packages must use the beta release line for the native Netlify adapter. Netlify publishes `public` without a frontend build.
+## Frontend conventions
+- Keep Ukrainian UI copy; escape user-provided strings with `esc()` before HTML insertion.
+- Keep mobile inputs at least 16px and touch targets at least 44px; respect safe areas and reduced motion.
+- Service Worker caches only the public shell. Never cache API/auth/private content.
+- Preserve full-tank fuel calculation semantics and keep LPG/petrol/electric units separate.
+- Fleet distance is unavailable when any participating car lacks distance evidence. Cost-per-distance is explicitly a partial estimate.
 
-# Conventions
+## Data and security
+- Never put API secrets, OAuth secrets, email provider keys, or real personal data in source control.
+- Do not expose R2 object keys or direct bucket URLs for private blog media. Route media through authorization checks.
+- Validate request size, input shape, owner identity, and revision on the server.
+- Back up before imports. Show users what will be imported and require explicit confirmation.
 
-Keep Ukrainian UI copy, `esc()` all inserted user text, and preserve `vehicles`, `serviceRules`, `carRecords`, `fuelups`, and unknown backup fields. Existing browser storage is read only for v6 migration; new application records must persist via Netlify primitives. Appearance preferences may remain browser settings. Never put personal records in source control or seed fictitious vehicles as user data.
-
-Keep fuel types separate, especially LPG/petrol and electricity units. Full-tank consumption uses accumulated fuel after the preceding full tank, including partial fills. Fleet distance is a sum of individual car distances and must be unavailable when a participating car lacks distance evidence. Costs per distance are explicitly partial estimates. Fault costs are not counted automatically in expense analytics, to avoid double counting a repair also entered in maintenance history.
-
-Forms use existing field IDs referenced by save handlers. When changing them, update renderers and handlers together. Respect 16px mobile inputs, 44px touch targets, safe areas, reduced motion, and PWA cache versioning. Photo/PDF data stays in portable backups; large attachments upload separately before the metadata snapshot.
-
-# Validation
-
-This delivery was reviewed by reading source only; no runtime, build, or browser checks were performed in the implementation session. Do not mark iPhone/PWA, live database round trips, or actual user backup migration as verified until exercised. See README for launch instructions and known limitations.
+## Validation and release
+- Run `node --check` against the frontend script (extract it to a `.cjs` file), `tsc --noEmit`, and SQL migration validation.
+- Do not claim Cloudflare, OAuth, email delivery, D1/R2 round-trips, or iPhone PWA behavior are verified unless tested in the deployed environment.
+- Keep v8 in its own Cloudflare resources. Never point it at v7 production storage during development.
