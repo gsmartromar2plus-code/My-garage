@@ -1,0 +1,1 @@
+{"name":"my-garage-v7","version":"7.1.0","private":true,"type":"module","dependencies":{"@netlify/database":"latest","@netlify/blobs":"latest","@netlify/functions":"latest","drizzle-orm":"beta"},"devDependencies":{"drizzle-kit":"beta","typescript":"latest"}}
